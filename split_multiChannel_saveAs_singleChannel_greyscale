@@ -1,0 +1,79 @@
+// ----- Choose output directory -----
+outputDir = getDirectory("Choose output directory for processed images");
+
+// ----- Get list of all open images and store their names -----
+originalImages = newArray(0);
+list = getList("image.titles");
+for (i = 0; i < list.length; i++) {
+    originalImages = Array.concat(originalImages, list[i]);
+}
+
+numImages = originalImages.length;
+print("Found " + numImages + " images to process");
+
+// ----- Process each original image -----
+for (j = 0; j < numImages; j++) {
+    imageName = originalImages[j];
+    
+    selectWindow(imageName);
+    print("Processing " + (j+1) + "/" + numImages + ": " + imageName);
+    
+    // ----- Get image info -----
+    origTitle = getTitle();
+    
+    // Create a clean basename for saving - remove problematic characters
+    baseName = origTitle;
+    // Remove file extension if present
+    dotIndex = lastIndexOf(baseName, ".");
+    if (dotIndex > -1) {
+        extension = substring(baseName, dotIndex);
+        // Only remove if it's a common image extension
+        if (extension == ".tif" || extension == ".tiff" || extension == ".lif" || 
+            extension == ".czi" || extension == ".nd2" || extension == ".jpg" || 
+            extension == ".png") {
+            baseName = substring(baseName, 0, dotIndex);
+        }
+    }
+    // Replace problematic characters for filenames
+    baseName = replace(baseName, " - ", "_");
+    baseName = replace(baseName, " ", "_");
+    baseName = replace(baseName, "/", "_");
+    baseName = replace(baseName, "\\", "_");
+    baseName = replace(baseName, ":", "_");
+    
+    // ----- Check if image is multichannel -----
+    getDimensions(width, height, channels, slices, frames);
+    print("  Channels: " + channels);
+    
+    if (channels > 1) {
+        // ----- Split the channels -----
+        run("Split Channels");
+        
+        // Process each channel
+        for (i = 1; i <= channels; i++) {
+            // Channel naming convention: C1-title, C2-title, etc.
+            channelName = "C" + i + "-" + origTitle;
+            selectWindow(channelName);
+            run("Grays");
+            setOption("ScaleConversions", true);
+            run("8-bit");
+            savePath = outputDir + baseName + "_ch" + i + ".tif";
+            saveAs("Tiff", savePath);
+            print("  Saved: " + baseName + "_ch" + i + ".tif");
+            close();
+        }
+    } else {
+        // ----- Single channel image: just save it -----
+        run("Grays");
+        setOption("ScaleConversions", true);
+        run("8-bit");
+        savePath = outputDir + baseName + "_ch1.tif";
+        saveAs("Tiff", savePath);
+        print("  Saved: " + baseName + "_ch1.tif");
+        close();
+    }
+}
+
+print("=== COMPLETE ===");
+print("Processed " + numImages + " images.");
+print("Files saved to: " + outputDir);
